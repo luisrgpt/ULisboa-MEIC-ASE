@@ -11,14 +11,8 @@
 const int potPin = A3;  // Analog input pin that the potentiometer is attached to
 const int lightPin = A1;  // Analog input pin that the light sensor is attached to
 
-const int potLed = 3; // PWM pin the pot led is attached to
-const int lightLed = 5; //Normal pin for the light led
-
-//Global vars
-unsigned long previousTime = 0;
-int previousPotValue = 0;
-int potBlinkTime = 200;
-bool potBlinkOn = true;
+const int potLed = 4; // PWM pin the pot led is attached to
+const int lightLed = 3; //Normal pin for the light led
 
 
 void setup() {
@@ -29,8 +23,10 @@ void setup() {
 }
 
 void handlePot(){
-  int potValue = map(analogRead(potPin), 512, 1023, 200, 2000);
-    
+  static unsigned long previousTime = 0;
+  static int potBlinkTime = 200;
+  static bool potBlinkOn = true;
+  
   unsigned long currentTime = millis();
   unsigned long timeDelta = currentTime - previousTime;
   previousTime = currentTime;
@@ -40,11 +36,7 @@ void handlePot(){
   if(potBlinkTime <= 0){
     potBlinkOn = !potBlinkOn;
     digitalWrite(potLed, (potBlinkOn)?HIGH:LOW);
-    potBlinkTime = potValue;
-  }
-
-  if(abs(potValue-previousPotValue) > 5){
-    previousPotValue = potValue;
+    potBlinkTime = map(analogRead(potPin), 512, 1023, 200, 2000);
   }
 
 }
