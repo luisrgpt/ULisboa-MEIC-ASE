@@ -10,9 +10,11 @@
 //PINs
 const int potPin = A3;  // Analog input pin that the potentiometer is attached to
 const int lightPin = A1;  // Analog input pin that the light sensor is attached to
+const int tempPin = A0; // Analog input pin that the temperature sensor is attached to
 
-const int potLed = 4; // PWM pin the pot led is attached to
-const int lightLed = 3; //Normal pin for the light led
+const int potLed = 4; // Normal pin the pot led is attached to
+const int lightLed = 3; //PWM pin for the light led
+const int tempLed = 2; // Normal pin the tempreature led is attached to
 
 
 void setup() {
@@ -20,6 +22,7 @@ void setup() {
   Serial.begin(9600);
   pinMode(potLed, OUTPUT);
   pinMode(lightLed, OUTPUT);
+  pinMode(tempLed, OUTPUT);
 }
 
 void handlePot(){
@@ -47,9 +50,20 @@ void handleLight(){
   analogWrite(lightLed, lightLedIntensity);
 }
 
+void handleTemperature(){
+  const int triggerTemperature = 26;
+  
+  int sensorValue = analogRead(tempPin);
+  int temperature = (((sensorValue/1024.0)*5)-0.5)*100;
+  //int temperature = (sensorValue*0.1096)-31.34; //This transformation is only for joao's temp sensor
+
+  digitalWrite(tempLed, (temperature > triggerTemperature)?HIGH:LOW);
+}
+
 void loop() {
   handlePot();
   handleLight();
+  handleTemperature();
 
   // wait 2 milliseconds before the next loop
   // for the analog-to-digital converter to settle
