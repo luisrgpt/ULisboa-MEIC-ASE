@@ -39,7 +39,7 @@ void handlePot(){
   if(potBlinkTime <= 0){
     potBlinkOn = !potBlinkOn;
     digitalWrite(potLed, (potBlinkOn)?HIGH:LOW);
-    potBlinkTime = map(analogRead(potPin), 512, 1023, 200, 2000);
+    potBlinkTime = map(analogRead(potPin), 0, 1023, 200, 2000);
   }
 
 }
@@ -62,11 +62,14 @@ void handleTemperature(){
 
 void loop() {
   handlePot();
+  delay(2);
   handleLight();
+  delay(2);
   handleTemperature();
+  delay(2);
 
-  // wait 2 milliseconds before the next loop
+  // wait 2 milliseconds 
   // for the analog-to-digital converter to settle
   // after the last reading:
-  delay(2);
+
 }
