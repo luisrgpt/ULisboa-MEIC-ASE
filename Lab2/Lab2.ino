@@ -40,13 +40,14 @@ void handlePot(){
     potBlinkOn = !potBlinkOn;
     digitalWrite(potLed, (potBlinkOn)?HIGH:LOW);
     potBlinkTime = map(analogRead(potPin), 0, 1023, 200, 2000);
+
   }
 
 }
 
 void handleLight(){
   int lightValue = analogRead(lightPin);
-  int lightLedIntensity = map(lightValue, 0, 1023, 0, 255);
+  int lightLedIntensity = map(lightValue, 0, 1023, 255, 0);
   analogWrite(lightLed, lightLedIntensity);
 }
 
