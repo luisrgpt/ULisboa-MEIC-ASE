@@ -4,14 +4,19 @@
   ASE Lab 2
   Joao Neves 70171
   Luis Ribeiro Gomes ?????
-  Miguel Carvalho ?????
-  20/10/2016
+  Miguel Carvalho 77034
+  15/11/2016
 
  */
 
 const int potLed = 4; // Normal pin the pot led is attached to
 const int lightLed = 3; //PWM pin for the light led
 const int tempLed = 2; // Normal pin the tempreature led is attached to
+
+/*
+ * The slave is always sleeping unless it receives a packet from the master, 
+ * in which case it immediately updates the LEDs
+ */
 
 void callbackFunction(int i){
   byte potBlinkOn = Wire.read();
