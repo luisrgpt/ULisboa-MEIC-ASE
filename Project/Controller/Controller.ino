@@ -39,13 +39,16 @@ void blinkTxRxLed(){
   digitalWrite(txrxLedPin, (ledOn)?HIGH:LOW);
 }
 
-void send(byte address, byte command, byte argument){
+void send(byte address, byte command, int argument){
   blinkTxRxLed();
   Wire.beginTransmission(address);
   Wire.write(command);
-  Wire.write(argument);
+  Wire.write((byte)argument);
+  Wire.write(argument >> sizeof(byte));
   Wire.endTransmission();
   blinkTxRxLed();
+
+  /*Messages are 3 bytes long |command|argument-lsb|argument-msb|*/
 }
 
 byte slaveAddressToLightId(byte address){
@@ -92,12 +95,13 @@ void registerACK(byte sender){
 
 void checkIncomingMessages(){
   for(byte i = 0; i<lightsCount; i++){
-      //Request 2 bytes from each light
+      //Request 3 bytes from each light
       blinkTxRxLed();
-      Wire.requestFrom(lights[i], (byte)2);
-      if(Wire.available() >= 2){
+      Wire.requestFrom(lights[i], (byte)3);
+      if(Wire.available() >= 3){
         byte data = Wire.read();
         byte sender = Wire.read();
+        Wire.read(); //Read the padding extra byte
         
         //Execute the commands appropriatly
         switch(data){
