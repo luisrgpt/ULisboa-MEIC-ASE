@@ -25,21 +25,24 @@ const byte lights_adress[LIGHTS_COUNT] = {8, 9};
 #define TIME 6
 
 //COLORS
-#define CLR_GREEN 0
-#define CLR_YELLOW 1
+#define CLR_GREEN 1
+#define CLR_YELLOW 2
 #define CLR_RED 3
 
 
 //Status
-byte currentLightColors[LIGHTS_COUNT] = {CLR_YELLOW, CLR_YELLOW};
+bool bothYellow = true;
+bool confirmedRed[LIGHTS_COUNT] = {false, false};
 
-
+//Function to flip the I2C LED
 void blinkTxRxLed(){
   static bool ledOn = false;
   ledOn = !ledOn;
   digitalWrite(TX_RX_LED_PIN, (ledOn)?HIGH:LOW);
 }
 
+/*Function to send commands to the slaves*/
+/*Messages are 3 bytes long |command|argument-lsb|argument-msb|*/
 void send(byte address, byte command, int argument){
   blinkTxRxLed();
   Wire.beginTransmission(address);
@@ -49,9 +52,9 @@ void send(byte address, byte command, int argument){
   Wire.endTransmission();
   blinkTxRxLed();
 
-  /*Messages are 3 bytes long |command|argument-lsb|argument-msb|*/
 }
 
+/*Convert a slave address to an index for ligths arrays*/
 byte slaveAddressToLightId(byte address){
   byte i;
   for(i=0;i<LIGHTS_COUNT;i++){
@@ -61,21 +64,18 @@ byte slaveAddressToLightId(byte address){
   return 0; //In case of failure return the first light to avoid crashes
 }
 
-void changeLightStatus(byte light, byte color){
-  if(light < LIGHTS_COUNT)
-    currentLightColors[light] = color;
-}
 
+/*This code should be executed when the controller is OFF*/
 void stateOff(){
+  bothYellow = true;
   for(int i=0; i<LIGHTS_COUNT; i++){
     send(lights_adress[i], OFF, 0);
   }
   delay(1000); //FIXME: Maybe this causes unresponsiveness for the On/Off button!
 }
 
+/*This code should be executed when the controller is ON*/
 void stateOn(){
-  /*TODO*/
-
   static int cycleLength = 0;
 
   //Check the potentiometer for changes and if necessary update the cycle on the traffic lights
@@ -87,13 +87,31 @@ void stateOn(){
     for(byte i=0;i<LIGHTS_COUNT;i++)
       send(lights_adress[i], TIME, cycleLength); //Update the traffic lights
   }
+
+  //Check if we need to initialize the lights, if so switch one to RED and the other to GREEN
+  if(bothYellow){
+    bothYellow = false;
+    send(lights_adress[0], ON, CLR_GREEN);
+    send(lights_adress[1], ON, CLR_RED);
+  }
+
+  //Everytime we receive a confirmation of RED tell the other light do begin its cycle
+  if(confirmedRed[0]){
+     confirmedRed[0] = false;
+     send(lights_adress[1], GRN, 0);
+  }
+  if(confirmedRed[1]){
+     confirmedRed[1] = false;
+     send(lights_adress[0], GRN, 0);
+  }
   
 }
 
 void registerACK(byte sender){
-  /*TODO*/
+  /*TODO We are still missing Fault-Tolerance*/
 }
 
+/*Check the slaves for incomming commands*/
 void checkIncomingMessages(){
   for(byte i = 0; i<LIGHTS_COUNT; i++){
       //Request 3 bytes from each light
@@ -106,7 +124,7 @@ void checkIncomingMessages(){
         
         //Execute the commands appropriatly
         switch(data){
-          case RED: changeLightStatus(slaveAddressToLightId(sender), CLR_RED); break;
+          case RED: confirmedRed[slaveAddressToLightId(sender)] = true; break;
           case PING: send(sender, ACK, 0); break;
           case ACK: registerACK(slaveAddressToLightId(sender));
         }
@@ -118,6 +136,7 @@ void checkIncomingMessages(){
   }
 }
 
+/*Funcion to check if the controller is ON or OFF*/
 bool isOn(){
   static bool On = false;
   static bool prevButtonStatus = false;
@@ -133,6 +152,7 @@ bool isOn(){
 void setup() {
   pinMode(ON_OFF_BUTTON_PIN, INPUT);
   pinMode(POTENTIOMETER_PIN, INPUT);
+  pinMode(TX_RX_LED_PIN, OUTPUT);
   Wire.begin();
 
 }
