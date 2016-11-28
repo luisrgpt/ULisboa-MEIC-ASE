@@ -1,9 +1,12 @@
 #include <Wire.h>
 
 //PINs
-#define ON_OFF_BUTTON_PIN 666
-#define POTENTIOMETER_PIN 666
-#define TX_RX_LED_PIN 666
+#define ON_OFF_BUTTON_PIN 4
+#define OFF_LED_PIN 5
+#define ON_LED_PIN 6
+#define TX_RX_LED_PIN 7
+#define POTENTIOMETER_PIN A5
+
 
 #define NOISE_RANGE 10
 
@@ -35,22 +38,38 @@ bool bothYellow = true;
 bool confirmedRed[LIGHTS_COUNT] = {false, false};
 
 //Function to flip the I2C LED
-void blinkTxRxLed(){
+void blinkTxRxLed(bool sending){
+  static unsigned long previousTime = 0;
+  static int timer = 0;
   static bool ledOn = false;
-  ledOn = !ledOn;
+  
+  if(sending){
+    ledOn = true;
+    timer = 250;
+  }else{
+    unsigned long currentTime = millis();
+    unsigned long timeDelta = currentTime - previousTime;
+    previousTime = currentTime;
+
+    timer -= timeDelta;
+
+    if(timer<=0){
+      ledOn = false;
+    }
+  }
+
   digitalWrite(TX_RX_LED_PIN, (ledOn)?HIGH:LOW);
 }
 
 /*Function to send commands to the slaves*/
 /*Messages are 3 bytes long |command|argument-lsb|argument-msb|*/
 void send(byte address, byte command, int argument){
-  blinkTxRxLed();
-  Wire.beginTransmission(address);
+  blinkTxRxLed(true);
+  /*Wire.beginTransmission(address);
   Wire.write(command);
   Wire.write((byte)argument);
   Wire.write(argument >> sizeof(byte));
-  Wire.endTransmission();
-  blinkTxRxLed();
+  Wire.endTransmission();*/
 
 }
 
@@ -64,15 +83,6 @@ byte slaveAddressToLightId(byte address){
   return 0; //In case of failure return the first light to avoid crashes
 }
 
-
-/*This code should be executed when the controller is OFF*/
-void stateOff(){
-  bothYellow = true;
-  for(int i=0; i<LIGHTS_COUNT; i++){
-    send(lights_adress[i], OFF, 0);
-  }
-  delay(1000); //FIXME: Maybe this causes unresponsiveness for the On/Off button!
-}
 
 /*This code should be executed when the controller is ON*/
 void stateOn(){
@@ -112,10 +122,11 @@ void registerACK(byte sender){
 }
 
 /*Check the slaves for incomming commands*/
+/*THIS BLOCKS IF THE SLAVES DONT RESPOND!!!!*/
 void checkIncomingMessages(){
   for(byte i = 0; i<LIGHTS_COUNT; i++){
       //Request 3 bytes from each light
-      blinkTxRxLed();
+      blinkTxRxLed(true);
       Wire.requestFrom(lights_adress[i], (byte)3);
       if(Wire.available() >= 3){
         byte data = Wire.read();
@@ -132,19 +143,29 @@ void checkIncomingMessages(){
       //Empty the buffer if there are more bytes left
       while(Wire.available())
         Wire.read();
-      blinkTxRxLed();
   }
 }
 
 /*Funcion to check if the controller is ON or OFF*/
-bool isOn(){
+bool handleOnOff(){
   static bool On = false;
   static bool prevButtonStatus = false;
 
   //Flip current status if button is pressed and its status is different from the previous execution
   bool buttonStatus = digitalRead(ON_OFF_BUTTON_PIN);
-  if(buttonStatus != prevButtonStatus && buttonStatus)
+  if(buttonStatus != prevButtonStatus && buttonStatus){
     On = !On;
+    if(!On){
+        bothYellow = true;
+        for(int i=0; i<LIGHTS_COUNT; i++){
+          send(lights_adress[i], OFF, 0);
+        }
+    }
+  }
+  prevButtonStatus = buttonStatus;
+
+  digitalWrite(ON_LED_PIN, (On)?HIGH:LOW);
+  digitalWrite(OFF_LED_PIN, (On)?LOW:HIGH);
 
   return On;
 }
@@ -153,16 +174,22 @@ void setup() {
   pinMode(ON_OFF_BUTTON_PIN, INPUT);
   pinMode(POTENTIOMETER_PIN, INPUT);
   pinMode(TX_RX_LED_PIN, OUTPUT);
+  pinMode(ON_LED_PIN, OUTPUT);
+  pinMode(OFF_LED_PIN, OUTPUT);
   Wire.begin();
+  Serial.begin(9600);
+
+  digitalWrite(TX_RX_LED_PIN, LOW);
+  digitalWrite(ON_LED_PIN, LOW);
+  digitalWrite(OFF_LED_PIN, LOW);
 
 }
 
 void loop() {
     
-  checkIncomingMessages();
-  
-  if(isOn())
+  //checkIncomingMessages();
+ 
+  if(handleOnOff())
     stateOn();
-  else
-    stateOff();
+   blinkTxRxLed(false);
 }
