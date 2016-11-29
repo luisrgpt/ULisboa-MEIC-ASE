@@ -28,6 +28,16 @@ const byte lights_adress[LIGHTS_COUNT] = {8, 9};
 #define GRN 5
 #define TIME 6
 
+#define STR_RED "RED"
+#define STR_PING "PING"
+#define STR_ACK "ACK"
+#define STR_ON "ON"
+#define STR_OFF "OFF"
+#define STR_GRN "GRN"
+#define STR_TIME "TIME"
+
+#define COMMAND_BUFFER_LEN 15
+
 //COLORS
 #define CLR_GREEN 1
 #define CLR_YELLOW 2
@@ -106,29 +116,49 @@ void confirmRed(byte sender){
   confirmedRed[slaveAddressToLightId(sender)] = true;
 }
 
+void parseCommands(byte sender, char* data){
+  //Execute the commands appropriatly
+  switch(data[0]){
+    case RED: confirmRed(sender); break;
+    case PING: send(sender, ACK, 0); break;
+    case ACK: registerACK(sender);
+  }
+}
+
+/*This function should be used to interface with Textual traffic lights*/
+void string_parseCommands(byte sender, char* data){
+  char command = -1;
+  if(data[0] == 'R')
+    command = RED;
+  if(data[0] == 'P')
+    command = PING;
+  if(data[0] == 'A')
+    command = ACK;
+
+  parseCommands(sender, &command);
+}
+
 /*Check the slaves for incomming commands*/
 void checkIncomingMessages(){
   for(byte i = 0; i<LIGHTS_COUNT; i++){
       //Request 3 bytes from each light
+      char inputbuffer[COMMAND_BUFFER_LEN];
       Timer1.attachInterrupt(timeout, TIMEOUT_PERIOD);
-      Wire.requestFrom(lights_adress[i], (byte)3);
-      if(Wire.available() >= 3){
-        updateTxRxLed(true);
-        byte data = Wire.read();
-        byte sender = Wire.read();
-        Wire.read(); //Read extra byte (should be 0)
-        
-        //Execute the commands appropriatly
-        switch(data){
-          case RED: confirmRed(sender); break;
-          case PING: send(sender, ACK, 0); break;
-          case ACK: registerACK(sender);
+      Wire.requestFrom(lights_adress[i], (byte)COMMAND_BUFFER_LEN);
+      updateTxRxLed(true);
+      for(byte j=0;j<COMMAND_BUFFER_LEN;j++){
+        if(Wire.available()){
+          inputbuffer[j] = Wire.read();
+        }else{
+          break;
         }
       }
       //Empty the buffer if there are more bytes left
       while(Wire.available())
         Wire.read();
       Timer1.detachInterrupt();
+      
+      parseCommands(lights_adress[i], inputbuffer);
   }
 
 }
