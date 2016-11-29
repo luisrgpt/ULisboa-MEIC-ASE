@@ -1,3 +1,5 @@
+#include <Wire.h>
+
 /*
   ASE Lab 1
   Joao Neves
@@ -25,7 +27,8 @@ enum LT{
   RoadFixedGREEN,  //G-Y
   RoadFixedYELLOW,    //Y-G
   RoadFixedYELLOW2,  //Y-R
-  RoadBlinkingYELLOW,
+  RoadBlinkingYELLOW1,
+  RoadBlinkingYELLOW2,
 } lt;
 
 
@@ -34,7 +37,6 @@ const int basicTimeUnit = 1000; //millseconds
 unsigned long previousTime = 0;
 
 void printLedStates(){
-//  Serial.println((float)4000/3);
   Serial.println("--------");
   Serial.print("Red Light->");Serial.print(digitalRead(highwayRedLEDstate));
   Serial.print("\n");
@@ -42,9 +44,30 @@ void printLedStates(){
   Serial.print("\n");
   Serial.print("Green Light->");Serial.print(digitalRead(highwayGreenLEDstate));
   Serial.print("\n");
-  Serial.print("Pin13->");Serial.print(digitalRead(13));
+  Serial.print("Pedestrian->");Serial.print(digitalRead(13));
   Serial.print("\n");
   Serial.println("--------");
+}
+
+void sendRed(){
+  Wire.beginTransmission(8);
+  Wire.write("RED");
+  Wire.write(0);
+  Wire.endTransmission();
+}
+
+void sendPing(){
+  Wire.beginTransmission(8);
+  Wire.write("PING");
+  Wire.write(0);
+  Wire.endTransmission();  
+}
+
+void sendACKg(){
+  Wire.beginTransmission(8);
+  Wire.write("ACK");
+  Wire.write(0);
+  Wire.endTransmission();  
 }
 
 void setup() {
@@ -54,17 +77,17 @@ void setup() {
   pinMode(highwayYellowLEDPin, OUTPUT);
   pinMode(highwayRedLEDPin, OUTPUT);
   
-  pinMode(13, INPUT);
-  pinMode(8, INPUT);
-  pinMode(6 , INPUT);
-  pinMode(3 , INPUT);
+  pinMode(pedestrianButtonPin, INPUT);
+  pinMode(highwayRedLEDstate, INPUT);
+  pinMode(highwayYellowLEDstate , INPUT);
+  pinMode(highwayGreenLEDstate , INPUT);
 
-  digitalWrite(2, LOW);
-  digitalWrite(5, LOW);
-  digitalWrite(7, LOW);
+  digitalWrite(highwayGreenLEDPin, LOW);
+  digitalWrite(highwayYellowLEDPin, LOW);
+  digitalWrite(highwayRedLEDPin, LOW);
  // digitalWrite(13, LOW);
   
-  st=ImminentDanger;
+  st=NormalFunction;
   lt=RoadFixedRED;
 }
 
@@ -74,7 +97,10 @@ void loop() {
   unsigned long timeDelta = currentTime - previousTime;
   static int switchTime = 4*basicTimeUnit;
   
-  if(digitalRead(pedestrianButtonPin) == HIGH) st=PedestrianButton;
+  if(digitalRead(pedestrianButtonPin) == HIGH) {
+      //st=ImminentDanger;lt=RoadBlinkingYELLOW1
+      st=PedestrianButton;
+  }
   /*switch(st){
     case test:
       digitalWrite(highwayRedLEDPin, HIGH);   
@@ -92,28 +118,8 @@ void loop() {
       printLedStates();
       delay(1000);
       break;
-    case NormalFunction:
-      digitalWrite(highwayRedLEDPin, HIGH);
-      digitalWrite(highwayRedLEDPin, LOW);
-      digitalWrite(highwayYellowLEDPin, HIGH);   
-      delay(basicTimeUnit);
-      digitalWrite(highwayYellowLEDPin, LOW);
-      digitalWrite(highwayGreenLEDPin, HIGH);   
-      printLedStates();
-      delay(4*basicTimeUnit);
-      digitalWrite(highwayGreenLEDPin, LOW);
-      digitalWrite(highwayRedLEDPin, HIGH); 
-      break;
-    case ImminentDanger:
-      digitalWrite(highwayRedLEDPin, LOW);
-      digitalWrite(highwayGreenLEDPin, LOW);
-      digitalWrite(highwayYellowLEDPin, HIGH);   
-      delay(basicTimeUnit);
-      digitalWrite(highwayYellowLEDPin, LOW);
-      delay(basicTimeUnit);
-      break;
   }*/
-  
+  if(st != ImminentDanger){
     switch(lt){
     case RoadFixedRED:
       if(st == PedestrianButton && !set){ 
@@ -178,8 +184,37 @@ void loop() {
         switchTime = 4*basicTimeUnit;
         st=NormalFunction;
         lt=RoadFixedRED;
+        //sendRed();
       }
       break;
     }
-    
- }
+  }
+  else if (st == ImminentDanger){
+    switch(lt){
+      case RoadBlinkingYELLOW1:
+        digitalWrite(highwayRedLEDPin, LOW);
+        digitalWrite(highwayGreenLEDPin, LOW);
+        digitalWrite(highwayYellowLEDPin, HIGH);   
+        previousTime = currentTime;
+        switchTime -= timeDelta;
+        if(switchTime <=0){
+          switchTime = basicTimeUnit;
+          st=ImminentDanger;
+          lt=RoadBlinkingYELLOW2;
+        }
+        break;
+      case RoadBlinkingYELLOW2:
+        digitalWrite(highwayRedLEDPin, LOW);
+        digitalWrite(highwayGreenLEDPin, LOW);
+        digitalWrite(highwayYellowLEDPin, LOW);
+        previousTime = currentTime;
+        switchTime -= timeDelta;
+        if(switchTime <=0){
+          switchTime = basicTimeUnit;
+          st=ImminentDanger;
+          lt=RoadBlinkingYELLOW1;
+        }
+        break;
+    }
+  }
+}
