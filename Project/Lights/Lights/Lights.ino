@@ -36,12 +36,12 @@ enum lightsState{
 } st;
 
 enum LT{
-  RoadFixedRED,    //R-Y order
-  RoadFixedGREEN,  //G-Y
-  RoadFixedYELLOW,    //Y-G
-  RoadFixedYELLOW2,  //Y-R
-  RoadBlinkingYELLOW1,
-  RoadBlinkingYELLOW2,
+  RoadFixedRED=1,    //R-Y order
+  RoadFixedGREEN=2,  //G-Y
+  RoadFixedYELLOW=3,    //Y-G
+  RoadFixedYELLOW2=4,  //Y-R
+  RoadBlinkingYELLOW1=5,
+  RoadBlinkingYELLOW2=6,
 } lt;
 
 
@@ -93,8 +93,12 @@ void receiveCommandFromController(int i){
     arg = (msb<<sizeof(byte) | lsb);
     switch(comm){
       case ON:
+        st=NormalFunction;
+        lt=(LT) arg;
         break;
       case OFF:
+        st=ImminentDanger;
+        lt=RoadBlinkingYELLOW1;
         break;
       case GRN:
         st=NormalFunction;
@@ -143,7 +147,7 @@ void loop() {
   unsigned long currentTime = millis();
   unsigned long timeDelta = currentTime - previousTime;
   
-  //st=ImminentDanger;lt=RoadBlinkingYELLOW1;  //Initializes Yellow Blinking lights
+  st=ImminentDanger;lt=RoadBlinkingYELLOW1;  //Initializes Yellow Blinking lights
   
   if(digitalRead(pedestrianButtonPin) == HIGH) {
       //st=ImminentDanger;lt=RoadBlinkingYELLOW1;
@@ -185,8 +189,8 @@ void loop() {
         set=false;
         switchTime = basicTimeUnit;
         lt=RoadFixedYELLOW;
-        digitalWrite(highwayRedLEDPin, HIGH);
-        digitalWrite(highwayGreenLEDPin, LOW);
+        digitalWrite(pedestrianRedLEDPin, HIGH);
+        digitalWrite(pedestrianGreenLEDPin, LOW);
       }
       break;
     case RoadFixedYELLOW:
