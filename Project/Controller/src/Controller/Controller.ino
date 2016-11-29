@@ -10,7 +10,7 @@
 #define POTENTIOMETER_PIN A1
 
 
-#define NOISE_RANGE 10
+#define NOISE_RANGE 100
 
 //Adresses
 #define LIGHTS_COUNT 2
@@ -60,8 +60,7 @@ void blinkTxRxLed(bool sending){
 
     timer -= timeDelta;
 
-    Serial.print(timer);
-    Serial.print("\n");
+
 
     if(timer<=0){
       ledOn = false;
@@ -79,9 +78,18 @@ void send(byte address, byte command, int argument){
   Wire.beginTransmission(address);
   Wire.write(command);
   Wire.write((byte)argument);
-  Wire.write(argument >> sizeof(byte));
+  Wire.write((byte)(argument >> 8));
   Wire.endTransmission();
   Timer1.detachInterrupt();
+  if(command != 6)
+    return;
+      Serial.print(argument);
+    Serial.print("\n");
+      Serial.print((byte)argument);
+    Serial.print("\n");
+          Serial.print((byte)argument>>8);
+    Serial.print("\n");
+    Serial.print("\n");
 }
 
 /*Convert a slave address to an index for ligths arrays*/
@@ -101,6 +109,7 @@ void stateOn(){
 
   //Check the potentiometer for changes and if necessary update the cycle on the traffic lights
   int newCycleLength = map(analogRead(POTENTIOMETER_PIN), 0, 1023, MIN_CYCLE, MAX_CYCLE);
+
 
   //Ignore changes < 10ms possibly caused by noise
   if((newCycleLength > cycleLength+NOISE_RANGE) || (newCycleLength < cycleLength-NOISE_RANGE)){
@@ -208,7 +217,7 @@ void setup() {
 
 void loop() {
     
-  checkIncomingMessages();
+  //checkIncomingMessages();
  
   if(handleOnOff())
     stateOn();

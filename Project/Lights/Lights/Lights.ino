@@ -46,7 +46,7 @@ enum LT{
 
 
 
-const int basicTimeUnit = 1000; //millseconds
+int basicTimeUnit = 1000; //millseconds
 unsigned long previousTime = 0;
 static int switchTime = 4*basicTimeUnit;
 
@@ -90,10 +90,13 @@ void receiveCommandFromController(int i){
     int arg;
     byte lsb = Wire.read();
     byte msb = Wire.read();
-    arg = (msb<<sizeof(byte) | lsb);
+    arg = (msb<<8 | lsb);
     Serial.print(comm);
     Serial.print(" ");
     Serial.print(arg);
+        Serial.print(" ");
+    Serial.print(arg);
+    
     Serial.print("\n");
     switch(comm){
       case ON:
@@ -110,6 +113,7 @@ void receiveCommandFromController(int i){
         break;
       case TIME:
         switchTime=arg;
+        basicTimeUnit=arg;
         break;
     }
 }
