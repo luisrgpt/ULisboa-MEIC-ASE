@@ -1,3 +1,5 @@
+#include <TimerOne.h>
+
 #include <Wire.h>
 
 //PINs
@@ -32,6 +34,9 @@ const byte lights_adress[LIGHTS_COUNT] = {8, 9};
 #define CLR_YELLOW 2
 #define CLR_RED 3
 
+//TIMEOUT (in microseconds)
+#define TIMEOUT_PERIOD 10000
+
 
 //Status
 bool bothYellow = true;
@@ -44,14 +49,19 @@ void blinkTxRxLed(bool sending){
   static bool ledOn = false;
   
   if(sending){
-    ledOn = true;
-    timer = 250;
+    if(timer <= -250){
+      timer = 250;
+      ledOn = true;
+    }
   }else{
     unsigned long currentTime = millis();
     unsigned long timeDelta = currentTime - previousTime;
     previousTime = currentTime;
 
     timer -= timeDelta;
+
+    Serial.print(timer);
+    Serial.print("\n");
 
     if(timer<=0){
       ledOn = false;
@@ -64,13 +74,14 @@ void blinkTxRxLed(bool sending){
 /*Function to send commands to the slaves*/
 /*Messages are 3 bytes long |command|argument-lsb|argument-msb|*/
 void send(byte address, byte command, int argument){
+  Timer1.attachInterrupt(timeout, TIMEOUT_PERIOD);
   blinkTxRxLed(true);
-  /*Wire.beginTransmission(address);
+  Wire.beginTransmission(address);
   Wire.write(command);
   Wire.write((byte)argument);
   Wire.write(argument >> sizeof(byte));
-  Wire.endTransmission();*/
-
+  Wire.endTransmission();
+  Timer1.detachInterrupt();
 }
 
 /*Convert a slave address to an index for ligths arrays*/
@@ -121,12 +132,18 @@ void registerACK(byte sender){
   /*TODO We are still missing Fault-Tolerance*/
 }
 
+void timeout(){
+  Wire.begin();
+}
+
 /*Check the slaves for incomming commands*/
 /*THIS BLOCKS IF THE SLAVES DONT RESPOND!!!!*/
 void checkIncomingMessages(){
   for(byte i = 0; i<LIGHTS_COUNT; i++){
       //Request 3 bytes from each light
       blinkTxRxLed(true);
+
+      Timer1.attachInterrupt(timeout, TIMEOUT_PERIOD);
       Wire.requestFrom(lights_adress[i], (byte)3);
       if(Wire.available() >= 3){
         byte data = Wire.read();
@@ -143,7 +160,9 @@ void checkIncomingMessages(){
       //Empty the buffer if there are more bytes left
       while(Wire.available())
         Wire.read();
+      Timer1.detachInterrupt();
   }
+
 }
 
 /*Funcion to check if the controller is ON or OFF*/
@@ -178,6 +197,7 @@ void setup() {
   pinMode(OFF_LED_PIN, OUTPUT);
   Wire.begin();
   Serial.begin(9600);
+  Timer1.initialize(1000000);
 
   digitalWrite(TX_RX_LED_PIN, LOW);
   digitalWrite(ON_LED_PIN, LOW);
@@ -187,7 +207,7 @@ void setup() {
 
 void loop() {
     
-  //checkIncomingMessages();
+  checkIncomingMessages();
  
   if(handleOnOff())
     stateOn();
