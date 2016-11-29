@@ -18,6 +18,16 @@
 #define pedestrianGreenLEDPin 11
 
 #define pedestrianButtonPin 13
+
+//API Commands
+#define RED 0
+#define PING 1
+#define ACK 2
+#define ON 3
+#define OFF 4
+#define GRN 5
+#define TIME 6
+
 enum lightsState{
   NormalFunction,    //R-Y-G-Y-R order
   PedestrianButton,  //Same order, reduced time
@@ -38,6 +48,7 @@ enum LT{
 
 const int basicTimeUnit = 1000; //millseconds
 unsigned long previousTime = 0;
+static int switchTime = 4*basicTimeUnit;
 
 void printLedStates(){
   Serial.println("--------");
@@ -73,6 +84,32 @@ void sendACK(){
   Wire.endTransmission();  
 }
 
+
+void receiveCommandFromController(int i){
+    byte comm=Wire.read();
+    int arg;
+    byte lsb = Wire.read();
+    byte msb = Wire.read();
+    arg = (msb<<sizeof(byte) | lsb);
+    switch(comm){
+      case ON:
+        break;
+      case OFF:
+        break;
+      case GRN:
+        st=NormalFunction;
+        lt=RoadFixedRED;
+        break;
+      case TIME:
+        switchTime=arg;
+        break;
+    }
+}
+
+void requestFromController(){
+    
+}
+
 void setup() {
   
   Serial.begin(9600);
@@ -94,6 +131,9 @@ void setup() {
   digitalWrite(pedestrianGreenLEDPin,LOW);
   digitalWrite(pedestrianRedLEDPin,LOW);
   
+  Wire.begin(8);
+  Wire.onReceive(receiveCommandFromController);
+  Wire.onRequest(requestFromController);
   st=NormalFunction;
   lt=RoadFixedRED;
 }
@@ -102,7 +142,7 @@ void loop() {
   static bool set=false;
   unsigned long currentTime = millis();
   unsigned long timeDelta = currentTime - previousTime;
-  static int switchTime = 4*basicTimeUnit;
+  
   //st=ImminentDanger;lt=RoadBlinkingYELLOW1;  //Initializes Yellow Blinking lights
   
   if(digitalRead(pedestrianButtonPin) == HIGH) {
