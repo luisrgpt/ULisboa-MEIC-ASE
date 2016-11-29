@@ -7,7 +7,7 @@
 #define OFF_LED_PIN 5
 #define ON_LED_PIN 6
 #define TX_RX_LED_PIN 7
-#define POTENTIOMETER_PIN A5
+#define POTENTIOMETER_PIN A1
 
 
 #define NOISE_RANGE 10

@@ -91,6 +91,10 @@ void receiveCommandFromController(int i){
     byte lsb = Wire.read();
     byte msb = Wire.read();
     arg = (msb<<sizeof(byte) | lsb);
+    Serial.print(comm);
+    Serial.print(" ");
+    Serial.print(arg);
+    Serial.print("\n");
     switch(comm){
       case ON:
         st=NormalFunction;
@@ -138,8 +142,10 @@ void setup() {
   Wire.begin(8);
   Wire.onReceive(receiveCommandFromController);
   Wire.onRequest(requestFromController);
-  st=NormalFunction;
-  lt=RoadFixedRED;
+//  st=NormalFunction;
+  //lt=RoadFixedRED;
+  st=ImminentDanger;lt=RoadBlinkingYELLOW1;  //Initializes Yellow Blinking lights
+
 }
 
 void loop() {
@@ -147,7 +153,6 @@ void loop() {
   unsigned long currentTime = millis();
   unsigned long timeDelta = currentTime - previousTime;
   
-  st=ImminentDanger;lt=RoadBlinkingYELLOW1;  //Initializes Yellow Blinking lights
   
   if(digitalRead(pedestrianButtonPin) == HIGH) {
       //st=ImminentDanger;lt=RoadBlinkingYELLOW1;
