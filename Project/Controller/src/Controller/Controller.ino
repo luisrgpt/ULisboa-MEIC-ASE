@@ -114,6 +114,7 @@ void stateOn(){
     bothYellow = false;
     send(lights_adress[0], ON, CLR_GREEN);
     send(lights_adress[1], ON, CLR_RED);
+    send(lights_adress[0], GRN, 0);
   }
 
   //Everytime we receive a confirmation of RED tell the other light do begin its cycle
