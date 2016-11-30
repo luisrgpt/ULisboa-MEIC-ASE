@@ -8,7 +8,6 @@
 #define TX_RX_LED_PIN 7
 #define POTENTIOMETER_PIN A1
 
-
 #define NOISE_RANGE 100
 
 //Adresses
@@ -94,6 +93,34 @@ void send(byte address, byte command, int argument){
   Wire.write((byte)(argument >> 8));
   Wire.endTransmission();
   Timer1.detachInterrupt();
+}
+
+void string_send(byte address, byte command, int argument){
+  char outputBuffer[COMMAND_BUFFER_LEN];
+  switch(command){
+    case PING:
+      snprintf(outputBuffer, COMMAND_BUFFER_LEN, "%s", STR_PING); break;
+    case ACK:
+      snprintf(outputBuffer, COMMAND_BUFFER_LEN, "%s", STR_ACK); break;
+    case ON:
+      snprintf(outputBuffer, COMMAND_BUFFER_LEN, "%s {%d}", STR_ACK, argument); break;
+    case OFF:
+      snprintf(outputBuffer, COMMAND_BUFFER_LEN, "%s", STR_OFF); break;
+    case GRN:
+      snprintf(outputBuffer, COMMAND_BUFFER_LEN, "%s", STR_GRN); break;
+    case TIME:
+      snprintf(outputBuffer, COMMAND_BUFFER_LEN, "%s {%d}", STR_TIME, argument); break;
+    default:
+      return; 
+  }
+  
+  Timer1.attachInterrupt(timeout, TIMEOUT_PERIOD);
+  updateTxRxLed(true);
+  Wire.beginTransmission(address);
+  Wire.write(outputBuffer);
+  Wire.endTransmission();
+  Timer1.detachInterrupt();
+
 }
 
 /*Convert a slave address to an index for ligths arrays*/
