@@ -184,6 +184,7 @@ void loop() {
       st=PedestrianButton;
       
   }
+  
   if(st != ImminentDanger){  //in case we're working in Normal Modes
     switch(lt){        
     case RoadFixedRED:
@@ -254,6 +255,7 @@ void loop() {
     }
   }
   else if (st == ImminentDanger){
+    set=false;
     switch(lt){
         case RoadBlinkingYELLOW1:
           setLights( R_YELLOW );
@@ -266,9 +268,6 @@ void loop() {
           }
           break;
       case RoadBlinkingYELLOW2:
-          digitalWrite(highwayRedLEDPin, LOW);
-          digitalWrite(highwayGreenLEDPin, LOW);
-          digitalWrite(highwayYellowLEDPin, LOW);
           setLights( R_NONE );
           previousTime = currentTime;
           switchTime -= timeDelta;
