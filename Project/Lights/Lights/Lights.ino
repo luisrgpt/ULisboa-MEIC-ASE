@@ -1,11 +1,12 @@
+#include <TimerOne.h>
 #include <Wire.h>
 
 /*
-  ASE Lab 1
-  Joao Neves
-  70171
-  13/10/2016
+  ASE Projet
+    LIGHTS
 */
+#define TIMEOUT_PERIOD 10000
+
 #define highwayGreenLEDstate 3
 #define highwayYellowLEDstate 6
 #define highwayRedLEDstate 8
@@ -29,6 +30,14 @@
 #define OFF 4
 #define GRN 5
 #define TIME 6
+
+#define STR_RED "RED"
+#define STR_PING "PING"
+#define STR_ACK "ACK"
+#define STR_ON "ON"
+#define STR_OFF "OFF"
+#define STR_GRN "GRN"
+#define STR_TIME "TIME"
 
 //Lights mask
 #define R_NONE   B0
@@ -56,11 +65,23 @@ enum LT{
   RoadBlinkingYELLOW2=6,
 } lt;
 
+/****************DEBUG*******************/
+String inputString = "";         // a string to hold incoming data
+boolean stringComplete = false;  // whether the string is complete
+void serialEvent() {
+  while (Serial.available()) {
+    // get the new byte:
+    char inChar = (char)Serial.read();
+    // add it to the inputString:
+    inputString += inChar;
+    // if the incoming character is a newline, set a flag
+    // so the main loop can do something about it:
+    if (inChar == '\n') {
+      stringComplete = true;
+    }
+  }
+}
 
-
-int basicTimeUnit = 1000; //millseconds
-unsigned long previousTime = 0;
-static int switchTime = 4*basicTimeUnit;
 
 void printLedStates(){
   Serial.println("--------");
@@ -73,6 +94,21 @@ void printLedStates(){
   Serial.print("Pedestrian->");Serial.print(digitalRead(13));
   Serial.print("\n");
   Serial.println("--------");
+}
+
+/****************DEBUG*****************/
+
+
+int basicTimeUnit = 1000; //millseconds
+unsigned long previousTime = 0;
+static int switchTime = basicTimeUnit;
+
+
+/*Function to execute when I2C times out*/
+/*HACK since Wire functions are blocking the only way to unfreeze the program 
+  is to reinitialize the channel*/
+void timeout(){
+  Wire.begin();
 }
 
 void sendRed(){
@@ -97,11 +133,12 @@ void sendACK(){
 }
 
 void setLights(int lmask){
-  digitalWrite(highwayRedLEDPin,   (lmask && R_RED)?HIGH:LOW);
-  digitalWrite(highwayGreenLEDPin, (lmask && R_GREEN)?HIGH:LOW);
-  digitalWrite(highwayYellowLEDPin,(lmask && R_YELLOW)?HIGH:LOW);
-  digitalWrite(pedestrianRedLEDPin,(lmask && P_RED)?HIGH:LOW);
-  digitalWrite(pedestrianGreenLEDPin,(lmask && P_GREEN)?HIGH:LOW); 
+ // Serial.println(lmask);
+  digitalWrite(highwayRedLEDPin,   (lmask & R_RED)?HIGH:LOW);
+  digitalWrite(highwayGreenLEDPin, (lmask & R_GREEN)?HIGH:LOW);
+  digitalWrite(highwayYellowLEDPin,(lmask & R_YELLOW)?HIGH:LOW);
+  digitalWrite(pedestrianRedLEDPin,(lmask & P_RED)?HIGH:LOW);
+  digitalWrite(pedestrianGreenLEDPin,(lmask & P_GREEN)?HIGH:LOW); 
   
   
 }
@@ -146,6 +183,9 @@ void requestFromController(){
 void setup() {
   
   Serial.begin(9600);
+  // reserve 200 bytes for the inputString:
+  inputString.reserve(200);  //DEBUG
+  
   pinMode(highwayGreenLEDPin, OUTPUT);
   pinMode(highwayYellowLEDPin, OUTPUT);
   pinMode(highwayRedLEDPin, OUTPUT);
@@ -278,5 +318,21 @@ void loop() {
           }
           break;
     }
+  }
+  
+  
+  
+  
+  
+   if (stringComplete) {
+    Serial.println(inputString);
+    // clear the string:
+    char arg0 = inputString[0];
+    char arg1 = (inputString[1]!=0)?inputString[1]:0;
+    st=(arg0 == 'N')?NormalFunction:ImminentDanger;
+    if(st == NormalFunction) lt=(LT) (arg1 - '0');
+    else if(st == ImminentDanger) lt = RoadBlinkingYELLOW1;
+    inputString = "";
+    stringComplete = false;
   }
 }
