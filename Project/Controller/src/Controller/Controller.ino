@@ -9,14 +9,15 @@
 #define POTENTIOMETER_PIN A1
 
 #define NOISE_RANGE 100
+#define LED_BLINK_DURATION 250 //in milliseconds
 
 //Adresses
 #define LIGHTS_COUNT 2
 const byte lights_adress[LIGHTS_COUNT] = {8, 9};
 
 //Cycle durations
-#define MIN_CYCLE 2000
-#define MAX_CYCLE 10000
+#define MIN_CYCLE 2000 //in milliseconds
+#define MAX_CYCLE 10000 //in milliseconds
 
 //API Commands
 #define RED 0
@@ -47,7 +48,6 @@ const byte lights_adress[LIGHTS_COUNT] = {8, 9};
 
 
 //Status
-bool bothYellow = true;
 bool confirmedRed[LIGHTS_COUNT] = {false, false};
 bool confirmedAlive[LIGHTS_COUNT] = {false, false};
 int  heartbeatInterval[LIGHTS_COUNT] = {0, 0};
@@ -58,8 +58,8 @@ void updateTxRxLed(bool sending){
   static int timer = 0;
   static bool ledOn = false;
   
-  if(sending && timer <= -250){
-    timer = 250;
+  if(sending && timer <= -(LED_BLINK_DURATION)){ //If the Led has been off for at least DURATION
+    timer = LED_BLINK_DURATION; //Set it to be on for DURATION
     ledOn = true;
   }else{
     unsigned long currentTime = millis();
@@ -95,6 +95,8 @@ void send(byte address, byte command, int argument){
   Timer1.detachInterrupt();
 }
 
+/*Function to send commands to the slaves*/
+/*String implementation for compatibility*/
 void string_send(byte address, byte command, int argument){
   char outputBuffer[COMMAND_BUFFER_LEN];
   switch(command){
@@ -143,6 +145,7 @@ void confirmRed(byte sender){
   confirmedRed[slaveAddressToLightId(sender)] = true;
 }
 
+/*Parse the commands received from traffic lights*/
 void parseCommands(byte sender, char* data){
   //Execute the commands appropriatly
   switch(data[0]){
@@ -152,7 +155,8 @@ void parseCommands(byte sender, char* data){
   }
 }
 
-/*This function should be used to interface with Textual traffic lights*/
+/*Parse the commands received from traffic lights*/
+/*String version for compatibility*/
 void string_parseCommands(byte sender, char* data){
   char command = -1;
   if(data[0] == 'R')
@@ -168,11 +172,12 @@ void string_parseCommands(byte sender, char* data){
 /*Check the slaves for incomming commands*/
 void checkIncomingMessages(){
   for(byte i = 0; i<LIGHTS_COUNT; i++){
-      //Request 3 bytes from each light
+      
       char inputbuffer[COMMAND_BUFFER_LEN];
       Timer1.attachInterrupt(timeout, TIMEOUT_PERIOD);
       Wire.requestFrom(lights_adress[i], (byte)COMMAND_BUFFER_LEN);
       updateTxRxLed(true);
+      
       for(byte j=0;j<COMMAND_BUFFER_LEN;j++){
         if(Wire.available()){
           inputbuffer[j] = Wire.read();
@@ -183,8 +188,8 @@ void checkIncomingMessages(){
       //Empty the buffer if there are more bytes left
       while(Wire.available())
         Wire.read();
-      Timer1.detachInterrupt();
       
+      Timer1.detachInterrupt();
       parseCommands(lights_adress[i], inputbuffer);
   }
 
@@ -192,7 +197,6 @@ void checkIncomingMessages(){
 
 /*Shutdown the controller and the lights*/
 void shutdown(){
-  bothYellow = true;
   for(int i=0; i<LIGHTS_COUNT; i++){
     send(lights_adress[i], OFF, 0);
   }
@@ -200,7 +204,6 @@ void shutdown(){
 
 /*Initialize a light to green and the other to red*/
 void initialize(){
-    bothYellow = false;
     send(lights_adress[0], ON, CLR_GREEN);
     send(lights_adress[1], ON, CLR_RED);
 }
@@ -214,8 +217,10 @@ bool handleOnOff(){
   bool buttonStatus = digitalRead(ON_OFF_BUTTON_PIN);
   if(buttonStatus != prevButtonStatus && buttonStatus){
     On = !On;
-    if(!On)
-      shutdown();  //If the state changes to OFF then execute shutdown
+    if(On)
+      initialize(); //If the state changes to ON then initialize the traffic lights
+    else
+      shutdown();  //If the state changes to OFF then shutdown the traffic lights
   }
   prevButtonStatus = buttonStatus;
 
@@ -279,25 +284,28 @@ void loop() {
   static unsigned long previousTime = 0;
   static int cycleLength = 0;  
   bool On = false; 
-  unsigned long currentTime = millis();
+  unsigned long currentTime;
 
+
+  currentTime = millis();
+  //Handle the ON/OFF Button
   On = handleOnOff();
+
   if(!On){
     previousTime = currentTime;
     return;
-  }  
+  }
+  //The rest of the code is only executed if the Controller is ON
   
   //Request data from the traffic lights
   checkIncomingMessages();
+
   //Update the transfer LED
   updateTxRxLed(false);
+
   //Recalculate the cycleInterval
   cycleLength = handleCycleAdjustment(cycleLength);
     
-  //Check if we need to initialize the traffic lights
-  if(bothYellow)
-    initialize();
-
   //Everytime we receive a confirmation of RED tell the other light do begin its cycle
   if(confirmedRed[0]){
      confirmedRed[0] = false;
@@ -309,7 +317,6 @@ void loop() {
 
   //Check if all traffic lights are alive
   checkHeartBeat(cycleLength, currentTime-previousTime);
-
 
   previousTime = currentTime;
 }
