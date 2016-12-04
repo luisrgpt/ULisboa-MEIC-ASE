@@ -48,6 +48,7 @@ const byte lights_adress[LIGHTS_COUNT] = {8, 9};
 
 
 //Status
+bool On = false;
 bool confirmedRed[LIGHTS_COUNT] = {false, false};
 bool confirmedAlive[LIGHTS_COUNT] = {false, false};
 int  heartbeatInterval[LIGHTS_COUNT] = {0, 0};
@@ -61,17 +62,15 @@ void updateTxRxLed(bool sending){
   if(sending && timer <= -(LED_BLINK_DURATION)){ //If the Led has been off for at least DURATION
     timer = LED_BLINK_DURATION; //Set it to be on for DURATION
     ledOn = true;
-  }else{
-    unsigned long currentTime = millis();
-    unsigned long timeDelta = currentTime - previousTime;
-    previousTime = currentTime;
-    timer -= timeDelta;
-
-    if(timer<=0){
-      ledOn = false;
-    }
   }
+  unsigned long currentTime = millis();
+  unsigned long timeDelta = currentTime - previousTime;
+  previousTime = currentTime;
+  timer -= timeDelta;
 
+  if(timer<=0){
+    ledOn = false;
+  }
   digitalWrite(TX_RX_LED_PIN, (ledOn)?HIGH:LOW);
 }
 
@@ -200,6 +199,7 @@ void shutdown(){
   for(int i=0; i<LIGHTS_COUNT; i++){
     send(lights_adress[i], OFF, 0);
   }
+  On = false;
 }
 
 /*Initialize a light to green and the other to red*/
@@ -209,8 +209,7 @@ void initialize(){
 }
 
 /*Funcion to check if the controller is ON or OFF*/
-bool handleOnOff(){
-  static bool On = false;
+void handleOnOff(){
   static bool prevButtonStatus = false;
 
   //Flip current status if button is pressed and its status is different from the previous execution
@@ -226,8 +225,6 @@ bool handleOnOff(){
 
   digitalWrite(ON_LED_PIN, (On)?HIGH:LOW);
   digitalWrite(OFF_LED_PIN, (On)?LOW:HIGH);
-
-  return On;
 }
 
 /*Check the Potentiometer for cycle interval changes*/
@@ -283,14 +280,16 @@ void setup() {
 void loop() {
   static unsigned long previousTime = 0;
   static int cycleLength = 0;  
-  bool On = false; 
   unsigned long currentTime;
 
-
   currentTime = millis();
+  
   //Handle the ON/OFF Button
-  On = handleOnOff();
+  handleOnOff();
 
+  //Update the transfer LED
+  updateTxRxLed(false);
+  
   if(!On){
     previousTime = currentTime;
     return;
@@ -299,9 +298,6 @@ void loop() {
   
   //Request data from the traffic lights
   checkIncomingMessages();
-
-  //Update the transfer LED
-  updateTxRxLed(false);
 
   //Recalculate the cycleInterval
   cycleLength = handleCycleAdjustment(cycleLength);
