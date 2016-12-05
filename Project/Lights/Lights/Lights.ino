@@ -142,40 +142,8 @@ void setLights(int lmask){
   digitalWrite(pedestrianGreenLEDPin,(lmask & P_GREEN)?HIGH:LOW);
 }
 
-void receiveCommandFromController(int bytesReceived){
-    byte command[COMMAND_BUFFER_LEN];
-    byte comm,lsb,msb;
-    int arg = 0;
-    /*if(bytesReceived == 3){
-        Serial.println("bytes");
-        comm=Wire.read();
-        lsb = Wire.read();
-        msb = Wire.read();
-        arg = (msb<<8 | lsb);
-    } else {*/
-        Serial.println("Strings");
-        Wire.readBytes(command, bytesReceived);
-        Serial.println((char*)command);
-        if (command[0] == 'T') {
-          comm=TIME;
-          msb = command[7]; lsb = command[6];
-          arg = (msb<<8 | lsb);
-        }
-        else if (command[0] == 'G') comm=GRN;
-        else if (command[0] == 'A') comm=ACK;
-        else if (command[0] == 'O' && command[1] == 'F') comm=OFF;
-        else if (command[0] == 'O' && command[1] == 'N'){ 
-          comm=ON;
-          lsb = command[4];
-          arg = (lsb - 48);
-          Serial.println(arg);
-        }
-        else if (command[0] == 'P') comm=PING;
-   // }
-    
-  
-    switch(comm){
-      
+void execComm(int comm, int arg){
+  switch(comm){
       case ON:
         st=NormalFunction;
         lt=(LT) arg;
@@ -190,8 +158,9 @@ void receiveCommandFromController(int bytesReceived){
         lt=RoadFixedGREEN;
         break;
       case TIME:
-        //switchTime=arg;
-        //basicTimeUnit=arg;
+        switchTime=arg;
+        basicTimeUnit=arg;
+        Serial.println(arg); 
         break;
        case ACK:
         faults = 0;    //Here when receiving an alive signal from the microcontroller we reset the fault counter.
@@ -203,6 +172,42 @@ void receiveCommandFromController(int bytesReceived){
         Serial.println("errocmd");
         break;
     }
+}
+
+void receiveCommandFromController(int bytesReceived){
+    byte command[COMMAND_BUFFER_LEN];
+    int comm=-1;
+    int arg = 0;
+    Serial.println("--Comm Received--");
+    Wire.readBytes(command, bytesReceived);
+    Serial.println((char*)command);
+    if (command[0] == 'T') {
+      comm=TIME;
+      char time[6];
+      for(int i = 6; i<11; i++){  //Get TIME argument from received bytes
+        if(command[i] != '}') 
+          time[i-6] = command[i];
+        else{
+          time[i] = '\0';
+          break;
+        }
+      }
+      arg = atoi(time);          // Convert to int
+
+    }
+    else if (command[0] == 'G') comm=GRN;
+    else if (command[0] == 'A') comm=ACK;
+    else if (command[0] == 'O' && command[1] == 'F') comm=OFF;
+    else if (command[0] == 'O' && command[1] == 'N'){ 
+      comm=ON;
+      arg = (command[4] - '0');
+    }
+    else if (command[0] == 'P') comm=PING;
+    
+    execComm(comm,arg);
+
+  
+    
 }
 /*void commandHandle(char* buffer){
   Wire.beginTransmission(I2C_Address);
@@ -219,7 +224,7 @@ void sendPing(){
 }
 
 void requestFromController(){
-  if(cmdQueue.isEmpty())
+  if(cmdQueue.isEmpty() && st != ImminentDanger)
       pushACKStr();          //if Queue is empty send ACK by default
   
   String msg = cmdQueue.pop();  // get first command from queue
