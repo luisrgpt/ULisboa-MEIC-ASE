@@ -146,13 +146,16 @@ void receiveCommandFromController(int bytesReceived){
     byte command[COMMAND_BUFFER_LEN];
     byte comm,lsb,msb;
     int arg = 0;
-    if(bytesReceived == 3){
+    /*if(bytesReceived == 3){
+        Serial.println("bytes");
         comm=Wire.read();
         lsb = Wire.read();
         msb = Wire.read();
         arg = (msb<<8 | lsb);
-    } else {
+    } else {*/
+        Serial.println("Strings");
         Wire.readBytes(command, bytesReceived);
+        Serial.println((char*)command);
         if (command[0] == 'T') {
           comm=TIME;
           msb = command[7]; lsb = command[6];
@@ -164,16 +167,20 @@ void receiveCommandFromController(int bytesReceived){
         else if (command[0] == 'O' && command[1] == 'N'){ 
           comm=ON;
           lsb = command[4];
-          arg = (lsb);
+          command[5]='\0';
+          arg = (lsb - 48);
+          Serial.println(arg);
         }
         else if (command[0] == 'P') comm=PING;
-    }
+   // }
     
   
     switch(comm){
+      
       case ON:
         st=NormalFunction;
         lt=(LT) arg;
+        if(lt == RoadFixedRED) {pushRedStr();}
         break;
       case OFF:
         st=ImminentDanger;
@@ -184,14 +191,17 @@ void receiveCommandFromController(int bytesReceived){
         lt=RoadFixedRED;
         break;
       case TIME:
-        switchTime=arg;
-        basicTimeUnit=arg;
+        //switchTime=arg;
+        //basicTimeUnit=arg;
         break;
        case ACK:
         faults = 0;    //Here when receiving an alive signal from the microcontroller we reset the fault counter.
         break;
        case PING:
         pushACKStr();
+        break;
+       default:
+        Serial.println("errocmd");
         break;
     }
 }
@@ -215,9 +225,9 @@ void requestFromController(){
   
   String msg = cmdQueue.pop();  // get first command from queue
   
-  Wire.beginTransmission(I2C_Address);
+  //Wire.beginTransmission(I2C_Address);
   Wire.write(msg.c_str());
-  Wire.endTransmission();      // Send that command
+  //Wire.endTransmission();      // Send that command
 }
 
 void setup() {
@@ -331,7 +341,7 @@ void loop() {
           pushRedStr();       //Push RED to the microcontroller
           faults++;           //Increment faults counter.
           pushPingStr();      //But also check if we really have faults.
-          sendPing();  
+          //sendPing();  
       }
         break;
     }
