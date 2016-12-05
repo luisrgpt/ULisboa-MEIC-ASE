@@ -167,7 +167,6 @@ void receiveCommandFromController(int bytesReceived){
         else if (command[0] == 'O' && command[1] == 'N'){ 
           comm=ON;
           lsb = command[4];
-          command[5]='\0';
           arg = (lsb - 48);
           Serial.println(arg);
         }
@@ -188,7 +187,7 @@ void receiveCommandFromController(int bytesReceived){
         break;
       case GRN:
         st=NormalFunction;
-        lt=RoadFixedRED;
+        lt=RoadFixedGREEN;
         break;
       case TIME:
         //switchTime=arg;
@@ -271,6 +270,7 @@ void loop() {
   if(digitalRead(pedestrianButtonPin) == HIGH && st==NormalFunction) {
       st=PedestrianButton;
   }
+
   
   if(st != ImminentDanger){  //in case we're working in Normal Modes
     switch(lt){        

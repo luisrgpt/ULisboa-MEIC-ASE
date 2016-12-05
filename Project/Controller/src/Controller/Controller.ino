@@ -83,7 +83,7 @@ void timeout(){
 
 /*Function to send commands to the slaves*/
 /*Messages are 3 bytes long |command|argument-lsb|argument-msb|*/
-void send(byte address, byte command, int argument){
+void sendBytes(byte address, byte command, int argument){
   Timer1.attachInterrupt(timeout, TIMEOUT_PERIOD);
   updateTxRxLed(true);
   Wire.beginTransmission(address);
@@ -96,7 +96,7 @@ void send(byte address, byte command, int argument){
 
 /*Function to send commands to the slaves*/
 /*String implementation for compatibility*/
-void string_send(byte address, byte command, int argument){
+void send(byte address, byte command, int argument){
   char outputBuffer[COMMAND_BUFFER_LEN];
   switch(command){
     case PING:
@@ -104,7 +104,7 @@ void string_send(byte address, byte command, int argument){
     case ACK:
       snprintf(outputBuffer, COMMAND_BUFFER_LEN, "%s", STR_ACK); break;
     case ON:
-      snprintf(outputBuffer, COMMAND_BUFFER_LEN, "%s {%d}", STR_ACK, argument); break;
+      snprintf(outputBuffer, COMMAND_BUFFER_LEN, "%s {%d}", STR_ON, argument); break;
     case OFF:
       snprintf(outputBuffer, COMMAND_BUFFER_LEN, "%s", STR_OFF); break;
     case GRN:
@@ -189,7 +189,7 @@ void checkIncomingMessages(){
         Wire.read();
       
       Timer1.detachInterrupt();
-      parseCommands(lights_adress[i], inputbuffer);
+      string_parseCommands(lights_adress[i], inputbuffer);
   }
 
 }
@@ -251,6 +251,7 @@ void checkHeartBeat(int cycleLength, int timeDelta){
       heartbeatInterval[i] = cycleLength;
     }
     heartbeatInterval[i] -= timeDelta;
+    //Serial.println(heartbeatInterval[i]);
 
     if(heartbeatInterval[i] <= 0){
       send(lights_adress[i], PING, 0);
@@ -305,7 +306,7 @@ void loop() {
   //Everytime we receive a confirmation of RED tell the other light do begin its cycle
   if(confirmedRed[0]){
      confirmedRed[0] = false;
-     send(lights_adress[1], GRN, 0);
+     send(lights_adress[0], GRN, 0);
   }else if(confirmedRed[1]){
      confirmedRed[1] = false;
      send(lights_adress[0], GRN, 0);
