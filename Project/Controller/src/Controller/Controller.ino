@@ -200,9 +200,18 @@ void shutdown(){
   for(int i=0; i<LIGHTS_COUNT; i++){
     send(lights_adress[i], OFF, 0);
   }
+
+  //Reset our state
   On = false;
+  
   heartbeatTimeout[0] = MIN_CYCLE;
   heartbeatTimeout[1] = MIN_CYCLE;
+
+  confirmedRed[0] = false;
+  confirmedRed[1] = false;
+
+  confirmedAlive[0] = false;
+  confirmedAlive[1] = false;
 }
 
 /*Initialize a light to green and the other to red*/
