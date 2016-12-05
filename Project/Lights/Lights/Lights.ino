@@ -1,3 +1,5 @@
+#include <QueueList.h>
+
 #include <TimerOne.h>
 #include <Wire.h>
 
@@ -47,7 +49,7 @@
 #define P_RED    B1000
 #define P_GREEN  B10000
 
-
+#define COMMAND_BUFFER_LEN 15
 
 enum lightsState{
   NormalFunction,    //R-Y-G-Y-R order
@@ -64,6 +66,8 @@ enum LT{
   RoadBlinkingYELLOW1=5,
   RoadBlinkingYELLOW2=6,
 } lt;
+
+
 
 /****************DEBUG*******************/
 String inputString = "";         // a string to hold incoming data
@@ -102,34 +106,31 @@ void printLedStates(){
 int basicTimeUnit = 1000; //millseconds
 unsigned long previousTime = 0;
 static int switchTime = basicTimeUnit;
+QueueList <String> cmdQueue;
+int faults=0;
 
-
-/*Function to execute when I2C times out*/
-/*HACK since Wire functions are blocking the only way to unfreeze the program 
-  is to reinitialize the channel*/
-void timeout(){
-  Wire.begin();
+void pushRedStr(){
+  String a = STR_RED ;
+  a+=" {";
+  a+=I2C_Address;
+  a+="}";
+  cmdQueue.push(a); //"RED {i2c_address}"
 }
 
-void sendRed(){
-  Wire.beginTransmission(I2C_Address);
-  Wire.write("RED");
-  Wire.write(I2C_Address);
-  Wire.endTransmission();
+void pushPingStr(){
+  String a = STR_PING;
+  a+=" {";
+  a+=I2C_Address;
+  a+="}";  
+  cmdQueue.push(a); //"PING {i2c_address}"
 }
 
-void sendPing(){
-  Wire.beginTransmission(I2C_Address);
-  Wire.write("PING");
-  Wire.write(I2C_Address);
-  Wire.endTransmission();  
-}
-
-void sendACK(){
-  Wire.beginTransmission(I2C_Address);
-  Wire.write("ACK");
-  Wire.write(I2C_Address);
-  Wire.endTransmission();  
+void pushACKStr(){
+  String a = STR_ACK;
+  a+=" {";
+  a+=I2C_Address;
+  a+="}";  
+  cmdQueue.push(a); //"ACK {i2c_address}"
 }
 
 void setLights(int lmask){
@@ -138,24 +139,37 @@ void setLights(int lmask){
   digitalWrite(highwayGreenLEDPin, (lmask & R_GREEN)?HIGH:LOW);
   digitalWrite(highwayYellowLEDPin,(lmask & R_YELLOW)?HIGH:LOW);
   digitalWrite(pedestrianRedLEDPin,(lmask & P_RED)?HIGH:LOW);
-  digitalWrite(pedestrianGreenLEDPin,(lmask & P_GREEN)?HIGH:LOW); 
-  
-  
+  digitalWrite(pedestrianGreenLEDPin,(lmask & P_GREEN)?HIGH:LOW);
 }
 
-void receiveCommandFromController(int i){
-    byte comm=Wire.read();
-    int arg;
-    byte lsb = Wire.read();
-    byte msb = Wire.read();
-    arg = (msb<<8 | lsb);
-    Serial.print(comm);
-    Serial.print(" ");
-    Serial.print(arg);
-    Serial.print(" ");
-    Serial.print(arg);
+void receiveCommandFromController(int bytesReceived){
+    byte command[COMMAND_BUFFER_LEN];
+    byte comm,lsb,msb;
+    int arg = 0;
+    if(bytesReceived == 3){
+        comm=Wire.read();
+        lsb = Wire.read();
+        msb = Wire.read();
+        arg = (msb<<8 | lsb);
+    } else {
+        Wire.readBytes(command, bytesReceived);
+        if (command[0] == 'T') {
+          comm=TIME;
+          msb = command[7]; lsb = command[6];
+          arg = (msb<<8 | lsb);
+        }
+        else if (command[0] == 'G') comm=GRN;
+        else if (command[0] == 'A') comm=ACK;
+        else if (command[0] == 'O' && command[1] == 'F') comm=OFF;
+        else if (command[0] == 'O' && command[1] == 'N'){ 
+          comm=ON;
+          lsb = command[4];
+          arg = (lsb);
+        }
+        else if (command[0] == 'P') comm=PING;
+    }
     
-    Serial.print("\n");
+  
     switch(comm){
       case ON:
         st=NormalFunction;
@@ -173,11 +187,37 @@ void receiveCommandFromController(int i){
         switchTime=arg;
         basicTimeUnit=arg;
         break;
+       case ACK:
+        faults = 0;    //Here when receiving an alive signal from the microcontroller we reset the fault counter.
+        break;
+       case PING:
+        pushACKStr();
+        break;
     }
+}
+/*void commandHandle(char* buffer){
+  Wire.beginTransmission(I2C_Address);
+  Wire.write("RED");
+  Wire.write(I2C_Address);
+  Wire.endTransmission();
+}*/
+
+void sendPing(){
+  Wire.beginTransmission(I2C_Address);
+  Wire.write(PING);
+  Wire.write(I2C_Address);
+  Wire.endTransmission();
 }
 
 void requestFromController(){
-    
+  if(cmdQueue.isEmpty())
+      pushACKStr();          //if Queue is empty send ACK by default
+  
+  String msg = cmdQueue.pop();  // get first command from queue
+  
+  Wire.beginTransmission(I2C_Address);
+  Wire.write(msg.c_str());
+  Wire.endTransmission();      // Send that command
 }
 
 void setup() {
@@ -207,8 +247,7 @@ void setup() {
   Wire.begin(8);
   Wire.onReceive(receiveCommandFromController);
   Wire.onRequest(requestFromController);
-//  st=NormalFunction;
-  //lt=RoadFixedRED;
+//  st=NormalFunction;lt=RoadFixedRED;
   st=ImminentDanger;lt=RoadBlinkingYELLOW1;  //Initializes Yellow Blinking lights
 
 }
@@ -220,9 +259,7 @@ void loop() {
   
   
   if(digitalRead(pedestrianButtonPin) == HIGH && st==NormalFunction) {
-      //st=ImminentDanger;lt=RoadBlinkingYELLOW1;
       st=PedestrianButton;
-      
   }
   
   if(st != ImminentDanger){  //in case we're working in Normal Modes
@@ -232,7 +269,9 @@ void loop() {
           set = true;                       // time between lights!
           switchTime = (int) switchTime/2;
         }
-        
+        if(faults >=2){
+            st=ImminentDanger;lt=RoadBlinkingYELLOW1;   //check for 2 or more faults. If yes turn danger mode on.
+        }
         setLights( R_RED | P_GREEN);          
         
         previousTime = currentTime;
@@ -285,12 +324,15 @@ void loop() {
         previousTime = currentTime;
         switchTime -= timeDelta;
         if(switchTime <=0){//Transition Yellow -> Red
-          set=false;
+          set=false;       //Unset the Pedestrian flag
           switchTime = 4*basicTimeUnit;
           st=NormalFunction;
-          lt=RoadFixedRED;
-          //sendRed();  @TODO
-        }
+          lt=RoadFixedRED;    //restart Cycle
+          pushRedStr();       //Push RED to the microcontroller
+          faults++;           //Increment faults counter.
+          pushPingStr();      //But also check if we really have faults.
+          sendPing();  
+      }
         break;
     }
   }
@@ -317,6 +359,8 @@ void loop() {
             lt=RoadBlinkingYELLOW1;
           }
           break;
+      default:
+          lt = RoadBlinkingYELLOW1;
     }
   }
   
