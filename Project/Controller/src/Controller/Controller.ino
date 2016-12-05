@@ -51,7 +51,7 @@ const byte lights_adress[LIGHTS_COUNT] = {8, 9};
 bool On = false;
 bool confirmedRed[LIGHTS_COUNT] = {false, false};
 bool confirmedAlive[LIGHTS_COUNT] = {false, false};
-int  heartbeatInterval[LIGHTS_COUNT] = {0, 0};
+int  heartbeatTimeout[LIGHTS_COUNT] = {MIN_CYCLE, MIN_CYCLE};
 
 //Function to blink the I2C LED
 void updateTxRxLed(bool sending){
@@ -175,7 +175,8 @@ void checkIncomingMessages(){
       char inputbuffer[COMMAND_BUFFER_LEN];
       Timer1.attachInterrupt(timeout, TIMEOUT_PERIOD);
       Wire.requestFrom(lights_adress[i], (byte)COMMAND_BUFFER_LEN);
-      updateTxRxLed(true);
+      if(Wire.available())
+        updateTxRxLed(true);
       
       for(byte j=0;j<COMMAND_BUFFER_LEN;j++){
         if(Wire.available()){
@@ -200,6 +201,8 @@ void shutdown(){
     send(lights_adress[i], OFF, 0);
   }
   On = false;
+  heartbeatTimeout[0] = MIN_CYCLE;
+  heartbeatTimeout[1] = MIN_CYCLE;
 }
 
 /*Initialize a light to green and the other to red*/
@@ -248,16 +251,15 @@ void checkHeartBeat(int cycleLength, int timeDelta){
   for(byte i=0;i<LIGHTS_COUNT;i++){
     if(confirmedAlive[i]){
       confirmedAlive[i] = false;
-      heartbeatInterval[i] = cycleLength;
+      heartbeatTimeout[i] = cycleLength;
     }
-    heartbeatInterval[i] -= timeDelta;
-    //Serial.println(heartbeatInterval[i]);
+    heartbeatTimeout[i] -= timeDelta;
 
-    if(heartbeatInterval[i] <= 0){
+    if(heartbeatTimeout[i] <= 0){
       send(lights_adress[i], PING, 0);
     }
 
-    if(heartbeatInterval[i] <= -(cycleLength))
+    if(heartbeatTimeout[i] <= -(cycleLength))
       shutdown();
   }
 }
@@ -303,10 +305,10 @@ void loop() {
   //Recalculate the cycleInterval
   cycleLength = handleCycleAdjustment(cycleLength);
     
-  //Everytime we receive a confirmation of RED tell the other light do begin its cycle
+  //Everytime we receive a confirmation of RED tell the other light to begin its cycle
   if(confirmedRed[0]){
      confirmedRed[0] = false;
-     send(lights_adress[0], GRN, 0);
+     send(lights_adress[1], GRN, 0);
   }else if(confirmedRed[1]){
      confirmedRed[1] = false;
      send(lights_adress[0], GRN, 0);
