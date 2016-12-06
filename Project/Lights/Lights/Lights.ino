@@ -209,12 +209,22 @@ void receiveCommandFromController(int bytesReceived){
   
     
 }
-/*void commandHandle(char* buffer){
-  Wire.beginTransmission(I2C_Address);
-  Wire.write("RED");
-  Wire.write(I2C_Address);
-  Wire.endTransmission();
-}*/
+void checkLedHealth(int led){
+  switch(led){
+    case RoadFixedRED :
+      if(!highwayRedLEDstate){
+         st = ImminentDanger;
+      }
+      break;
+    case RoadFixedYELLOW : 
+      if(!highwayYellowLEDstate){
+         st = ImminentDanger;
+      }
+      break;
+    case RoadFixedGREEN : // Not decided yet what to do here
+      break;
+  }
+}
 
 void sendPing(){
   Wire.beginTransmission(I2C_Address);
@@ -224,14 +234,16 @@ void sendPing(){
 }
 
 void requestFromController(){
-  if(cmdQueue.isEmpty() && st != ImminentDanger)
+  if(cmdQueue.isEmpty() && st != ImminentDanger){
       pushACKStr();          //if Queue is empty send ACK by default
-  
-  String msg = cmdQueue.pop();  // get first command from queue
-  
-  //Wire.beginTransmission(I2C_Address);
-  Wire.write(msg.c_str());
-  //Wire.endTransmission();      // Send that command
+      String msg = cmdQueue.pop();  // get first command from queue
+      Wire.write(msg.c_str());
+  }
+  else if (cmdQueue.isEmpty() && st == ImminentDanger);
+  else{
+      String msg = cmdQueue.pop();  // get first command from queue
+      Wire.write(msg.c_str());
+  }
 }
 
 void setup() {
@@ -252,11 +264,7 @@ void setup() {
   pinMode(highwayYellowLEDstate , INPUT);
   pinMode(highwayGreenLEDstate , INPUT);
 
-  digitalWrite(highwayGreenLEDPin, LOW);
-  digitalWrite(highwayYellowLEDPin, LOW);
-  digitalWrite(highwayRedLEDPin, LOW);
-  digitalWrite(pedestrianGreenLEDPin,LOW);
-  digitalWrite(pedestrianRedLEDPin,LOW);
+  setLights( R_NONE );
   
   Wire.begin(8);
   Wire.onReceive(receiveCommandFromController);
@@ -285,9 +293,11 @@ void loop() {
           switchTime = (int) switchTime/2;
         }
         if(faults >=2){
-            st=ImminentDanger;lt=RoadBlinkingYELLOW1;   //check for 2 or more faults. If yes turn danger mode on.
+            st=ImminentDanger;   //check for 2 or more faults. If yes turn danger mode on.
         }
+        
         setLights( R_RED | P_GREEN);          
+        checkLedHealth(RoadFixedRED);
         
         previousTime = currentTime;
         switchTime -= timeDelta;
@@ -305,6 +315,7 @@ void loop() {
         }
 
         setLights( R_YELLOW | P_RED);
+        checkLedHealth(RoadFixedYELLOW);
         
         previousTime = currentTime;
         switchTime -= timeDelta;
@@ -375,6 +386,7 @@ void loop() {
           }
           break;
       default:
+          switchTime=basicTimeUnit=1000;
           lt = RoadBlinkingYELLOW1;
     }
   }
