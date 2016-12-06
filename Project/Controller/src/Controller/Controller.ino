@@ -1,5 +1,9 @@
-#include <TimerOne.h>
 #include <Wire.h>
+
+/*
+  ASE Projet
+    CONTROLLER
+*/
 
 //PINs
 #define ON_OFF_BUTTON_PIN 4
@@ -43,9 +47,6 @@ const byte lights_adress[LIGHTS_COUNT] = {8, 9};
 #define CLR_YELLOW 2
 #define CLR_RED 3
 
-//TIMEOUT (in microseconds)
-#define TIMEOUT_PERIOD 10000
-
 
 //Status
 bool On = false;
@@ -74,24 +75,15 @@ void updateTxRxLed(bool sending){
   digitalWrite(TX_RX_LED_PIN, (ledOn)?HIGH:LOW);
 }
 
-/*Function to execute when I2C times out*/
-/*HACK since Wire functions are blocking the only way to unfreeze the program 
-  is to reinitialize the channel*/
-void timeout(){
-  Wire.begin();
-}
-
 /*Function to send commands to the slaves*/
 /*Messages are 3 bytes long |command|argument-lsb|argument-msb|*/
 void sendBytes(byte address, byte command, int argument){
-  Timer1.attachInterrupt(timeout, TIMEOUT_PERIOD);
   updateTxRxLed(true);
   Wire.beginTransmission(address);
   Wire.write(command);
   Wire.write((byte)argument);
   Wire.write((byte)(argument >> 8));
   Wire.endTransmission();
-  Timer1.detachInterrupt();
 }
 
 /*Function to send commands to the slaves*/
@@ -114,13 +106,11 @@ void send(byte address, byte command, int argument){
     default:
       return; 
   }
-  
-  Timer1.attachInterrupt(timeout, TIMEOUT_PERIOD);
+  //Serial.println(outputBuffer);
   updateTxRxLed(true);
   Wire.beginTransmission(address);
   Wire.write(outputBuffer);
   Wire.endTransmission();
-  Timer1.detachInterrupt();
 
 }
 
@@ -145,9 +135,9 @@ void confirmRed(byte sender){
 }
 
 /*Parse the commands received from traffic lights*/
-void parseCommands(byte sender, char* data){
+void parseCommands(byte sender, byte data){
   //Execute the commands appropriatly
-  switch(data[0]){
+  switch(data){
     case RED: confirmRed(sender); break;
     case PING: send(sender, ACK, 0); break;
     case ACK: registerACK(sender);
@@ -165,7 +155,7 @@ void string_parseCommands(byte sender, char* data){
   if(data[0] == 'A')
     command = ACK;
 
-  parseCommands(sender, &command);
+  parseCommands(sender, command);
 }
 
 /*Check the slaves for incomming commands*/
@@ -173,7 +163,7 @@ void checkIncomingMessages(){
   for(byte i = 0; i<LIGHTS_COUNT; i++){
       
       char inputbuffer[COMMAND_BUFFER_LEN];
-      Timer1.attachInterrupt(timeout, TIMEOUT_PERIOD);
+      inputbuffer[0] = 0;
       Wire.requestFrom(lights_adress[i], (byte)COMMAND_BUFFER_LEN);
       if(Wire.available())
         updateTxRxLed(true);
@@ -186,11 +176,12 @@ void checkIncomingMessages(){
         }
       }
       //Empty the buffer if there are more bytes left
-      while(Wire.available())
+      while(Wire.available()){
         Wire.read();
+      }
       
-      Timer1.detachInterrupt();
-      string_parseCommands(lights_adress[i], inputbuffer);
+      if(inputbuffer[0] != 0)
+        string_parseCommands(lights_adress[i], inputbuffer);
   }
 
 }
@@ -257,7 +248,8 @@ int handleCycleAdjustment(int currentCycleLength){
   if they dont respond by them selves for 1 cycle ping them
   if they dont respond for 2 cycles shut everything down*/
 void checkHeartBeat(int cycleLength, int timeDelta){
-  for(byte i=0;i<LIGHTS_COUNT;i++){
+  for(byte i=0;i<LIGHTS_COUNT;i++){   //Comment this line to work with just one traffic light
+  //for(byte i=0;i<1;i++){            //uncomment this line to work with just one traffic light
     if(confirmedAlive[i]){
       confirmedAlive[i] = false;
       heartbeatTimeout[i] = cycleLength;
@@ -281,7 +273,6 @@ void setup() {
   pinMode(OFF_LED_PIN, OUTPUT);
   Wire.begin();
   Serial.begin(9600);
-  Timer1.initialize(1000000);
 
   digitalWrite(TX_RX_LED_PIN, LOW);
   digitalWrite(ON_LED_PIN, LOW);
@@ -317,7 +308,8 @@ void loop() {
   //Everytime we receive a confirmation of RED tell the other light to begin its cycle
   if(confirmedRed[0]){
      confirmedRed[0] = false;
-     send(lights_adress[1], GRN, 0);
+     //send(lights_adress[0], GRN, 0);//Uncomment this line to work with just one traffic light 
+     send(lights_adress[1], GRN, 0);  //Comment this line to work with just one traffic light
   }else if(confirmedRed[1]){
      confirmedRed[1] = false;
      send(lights_adress[0], GRN, 0);

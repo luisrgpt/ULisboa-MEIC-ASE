@@ -248,6 +248,11 @@ void requestFromController(){
   }
 }
 
+void ping(){
+   //pushPingStr();
+   //faults++;
+}
+
 void setup() {
   
   Serial.begin(9600);
@@ -273,6 +278,8 @@ void setup() {
   Wire.onRequest(requestFromController);
 //  st=NormalFunction;lt=RoadFixedRED;
   st=ImminentDanger;lt=RoadBlinkingYELLOW1;  //Initializes Yellow Blinking lights
+  //Timer1.initialize(1000000);
+  //Timer1.attachInterrupt(ping, 1000000);
 
 }
 
@@ -280,7 +287,13 @@ void loop() {
   static bool Pset=false;
   unsigned long currentTime = millis();
   unsigned long timeDelta = currentTime - previousTime;
-  
+  static int interval = 1000;
+
+  interval-= timeDelta;
+  if(interval <= 0){
+    ping();
+    interval = 1000;
+  }
   
   if(digitalRead(pedestrianButtonPin) == HIGH && st==NormalFunction) {
       st=PedestrianButton;
