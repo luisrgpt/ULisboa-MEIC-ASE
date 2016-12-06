@@ -108,6 +108,7 @@ unsigned long previousTime = 0;
 static int switchTime = basicTimeUnit;
 QueueList <String> cmdQueue;
 int faults=0;
+bool start_cycle = false;
 
 void pushRedStr(){
   String a = STR_RED ;
@@ -155,7 +156,8 @@ void execComm(int comm, int arg){
         break;
       case GRN:
         st=NormalFunction;
-        lt=RoadFixedGREEN;
+        //lt=RoadFixedGREEN;
+        start_cycle = true;
         break;
       case TIME:
         switchTime=arg;
@@ -275,7 +277,7 @@ void setup() {
 }
 
 void loop() {
-  static bool set=false;
+  static bool Pset=false;
   unsigned long currentTime = millis();
   unsigned long timeDelta = currentTime - previousTime;
   
@@ -288,8 +290,8 @@ void loop() {
   if(st != ImminentDanger){  //in case we're working in Normal Modes
     switch(lt){        
     case RoadFixedRED:
-        if(st == PedestrianButton && !set){ //In case a guy presses the button, short the switching
-          set = true;                       // time between lights!
+        if(st == PedestrianButton && !Pset){ //In case a guy presses the button, short the switching
+          Pset = true;                       // time between lights!
           switchTime = (int) switchTime/2;
         }
         if(faults >=2){
@@ -301,16 +303,16 @@ void loop() {
         
         previousTime = currentTime;
         switchTime -= timeDelta;
-        if(switchTime <=0){      //switch states Red->Yellow
-          set=false;
+        if(switchTime <=0 && start_cycle){      //switch states Red->Yellow
+          Pset=false;
           switchTime = basicTimeUnit;
           lt=RoadFixedYELLOW;
           setLights( R_YELLOW | P_RED);
         }
         break;
     case RoadFixedYELLOW:
-        if(st == PedestrianButton && !set){ 
-          set = true; 
+        if(st == PedestrianButton && !Pset){ 
+          Pset = true; 
           switchTime = (int) switchTime/2;
         }
 
@@ -319,15 +321,15 @@ void loop() {
         
         previousTime = currentTime;
         switchTime -= timeDelta;
-        if(switchTime <=0){//Transition Yellow -> Green
-          set=false;
+        if(switchTime <=0 && start_cycle){//Transition Yellow -> Green
+          Pset=false;
           switchTime = 4*basicTimeUnit;
           lt=RoadFixedGREEN;
         }
         break;
     case RoadFixedGREEN:
-        if(st == PedestrianButton && !set){ 
-          set = true; 
+        if(st == PedestrianButton && !Pset){ 
+          Pset = true; 
           switchTime = (int) switchTime/2;
         }
         
@@ -335,22 +337,22 @@ void loop() {
         
         previousTime = currentTime;
         switchTime -= timeDelta;
-        if(switchTime <=0){//Transition Green -> Yellow
-          set=false;
+        if(switchTime <=0 && start_cycle){//Transition Green -> Yellow
+          Pset=false;
           switchTime = basicTimeUnit;
           lt=RoadFixedYELLOW2;
         }
         break;
     case RoadFixedYELLOW2:      
-        if(st == PedestrianButton && !set){ 
-          set = true; 
+        if(st == PedestrianButton && !Pset){ 
+          Pset = true; 
           switchTime = (int) switchTime/2;
         }
         setLights( R_YELLOW | P_RED);
         previousTime = currentTime;
         switchTime -= timeDelta;
-        if(switchTime <=0){//Transition Yellow -> Red
-          set=false;       //Unset the Pedestrian flag
+        if(switchTime <=0 && start_cycle){//Transition Yellow -> Red
+          Pset=false;       //Unset the Pedestrian flag
           switchTime = 4*basicTimeUnit;
           st=NormalFunction;
           lt=RoadFixedRED;    //restart Cycle
@@ -363,7 +365,8 @@ void loop() {
     }
   }
   else if (st == ImminentDanger){
-    set=false;
+    Pset=false;
+    start_cycle=false;
     switch(lt){
         case RoadBlinkingYELLOW1:
           setLights( R_YELLOW );
