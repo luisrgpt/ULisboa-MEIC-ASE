@@ -7,8 +7,6 @@
   ASE Projet
     LIGHTS
 */
-#define TIMEOUT_PERIOD 10000
-
 #define highwayGreenLEDstate 3
 #define highwayYellowLEDstate 6
 #define highwayRedLEDstate 8
@@ -67,40 +65,6 @@ enum LT{
   RoadBlinkingYELLOW2=6,
 } lt;
 
-
-
-/****************DEBUG*******************/
-String inputString = "";         // a string to hold incoming data
-boolean stringComplete = false;  // whether the string is complete
-void serialEvent() {
-  while (Serial.available()) {
-    // get the new byte:
-    char inChar = (char)Serial.read();
-    // add it to the inputString:
-    inputString += inChar;
-    // if the incoming character is a newline, set a flag
-    // so the main loop can do something about it:
-    if (inChar == '\n') {
-      stringComplete = true;
-    }
-  }
-}
-
-
-void printLedStates(){
-  Serial.println("--------");
-  Serial.print("Red Light->");Serial.print(digitalRead(highwayRedLEDstate));
-  Serial.print("\n");
-  Serial.print("Yellow Light->");Serial.print(digitalRead(highwayYellowLEDstate));
-  Serial.print("\n");
-  Serial.print("Green Light->");Serial.print(digitalRead(highwayGreenLEDstate));
-  Serial.print("\n");
-  Serial.print("Pedestrian->");Serial.print(digitalRead(13));
-  Serial.print("\n");
-  Serial.println("--------");
-}
-
-/****************DEBUG*****************/
 
 
 int basicTimeUnit = 1000; //millseconds
@@ -396,21 +360,5 @@ void loop() {
           switchTime=basicTimeUnit=1000;
           lt = RoadBlinkingYELLOW1;
     }
-  }
-  
-  
-  
-  
-  
-   if (stringComplete) { // DEBUG 
-    Serial.println(inputString);
-    // clear the string:
-    char arg0 = inputString[0];
-    char arg1 = (inputString[1]!=0)?inputString[1]:0;
-    st=(arg0 == 'N')?NormalFunction:ImminentDanger;
-    if(st == NormalFunction) lt=(LT) (arg1 - '0');
-    else if(st == ImminentDanger) lt = RoadBlinkingYELLOW1;
-    inputString = "";
-    stringComplete = false;
   }
 }
