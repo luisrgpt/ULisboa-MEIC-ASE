@@ -135,7 +135,6 @@ void pushACKStr(){
 }
 
 void setLights(int lmask){
- // Serial.println(lmask);
   digitalWrite(highwayRedLEDPin,   (lmask & R_RED)?HIGH:LOW);
   digitalWrite(highwayGreenLEDPin, (lmask & R_GREEN)?HIGH:LOW);
   digitalWrite(highwayYellowLEDPin,(lmask & R_YELLOW)?HIGH:LOW);
@@ -208,8 +207,6 @@ void receiveCommandFromController(int bytesReceived){
     
     execComm(comm,arg);
 
-  
-    
 }
 void checkLedHealth(int led){
   switch(led){
@@ -226,13 +223,6 @@ void checkLedHealth(int led){
     case RoadFixedGREEN : // Not decided yet what to do here
       break;
   }
-}
-
-void sendPing(){
-  Wire.beginTransmission(I2C_Address);
-  Wire.write(PING);
-  Wire.write(I2C_Address);
-  Wire.endTransmission();
 }
 
 void requestFromController(){
@@ -312,7 +302,7 @@ void loop() {
         }
         
         setLights( R_RED | P_GREEN);          
-        checkLedHealth(RoadFixedRED);
+        checkLedHealth(RoadFixedRED);      // Red Light Fault tolerance
         
         previousTime = currentTime;
         switchTime -= timeDelta;
@@ -330,7 +320,7 @@ void loop() {
         }
 
         setLights( R_YELLOW | P_RED);
-        checkLedHealth(RoadFixedYELLOW);
+        checkLedHealth(RoadFixedYELLOW);    //Yellow light Fault tolerance
         
         previousTime = currentTime;
         switchTime -= timeDelta;
@@ -380,6 +370,7 @@ void loop() {
   else if (st == ImminentDanger){
     Pset=false;
     start_cycle=false;
+    //Intermitent Traffic Lights states
     switch(lt){
         case RoadBlinkingYELLOW1:
           setLights( R_YELLOW );
@@ -411,7 +402,7 @@ void loop() {
   
   
   
-   if (stringComplete) {
+   if (stringComplete) { // DEBUG 
     Serial.println(inputString);
     // clear the string:
     char arg0 = inputString[0];
